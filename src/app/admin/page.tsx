@@ -1,0 +1,495 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+// Mock inquiry data for triage dashboard
+const mockInquiries = [
+  {
+    id: '1',
+    parent: 'James Miller',
+    child: 'Leo',
+    inquiry: 'Asked about sick policy for fever',
+    confidence: 'green' as const,
+    status: 'Resolved',
+    timestamp: '10:32 AM',
+  },
+  {
+    id: '2',
+    parent: 'Elena Rodriguez',
+    child: 'Maya',
+    inquiry: 'Forgot Maya\'s lunch today',
+    confidence: 'green' as const,
+    status: 'Resolved',
+    timestamp: '9:45 AM',
+  },
+  {
+    id: '3',
+    parent: 'Sarah Chen',
+    child: 'Cooper',
+    inquiry: 'Asked about early pickup policy',
+    confidence: 'yellow' as const,
+    status: 'Pending Review',
+    timestamp: '9:15 AM',
+  },
+  {
+    id: '4',
+    parent: 'Guest User',
+    child: '-',
+    inquiry: 'Wanted info on enrolled child (blocked)',
+    confidence: 'yellow' as const,
+    status: 'Privacy Protected',
+    timestamp: '8:50 AM',
+  },
+  {
+    id: '5',
+    parent: 'James Miller',
+    child: 'Leo',
+    inquiry: '"I need to talk to a real person"',
+    confidence: 'red' as const,
+    status: '🚨 ESCALATED',
+    timestamp: '8:30 AM',
+  },
+];
+
+export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [knowledge, setKnowledge] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('January 15, 2026');
+  const router = useRouter();
+
+  // Load knowledge on mount
+  useEffect(() => {
+    fetch('/api/admin/knowledge')
+      .then((res) => res.json())
+      .then((data) => setKnowledge(data.content || ''))
+      .catch(() => setKnowledge('Failed to load knowledge base.'));
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Simple demo password check
+    if (password === 'admin' || password === 'littlesprouts') {
+      setIsAuthenticated(true);
+      setError('');
+    } else {
+      setError('Incorrect password. Try "admin" for demo.');
+    }
+  };
+
+  const handleSaveKnowledge = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    
+    try {
+      const res = await fetch('/api/admin/knowledge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: knowledge }),
+      });
+      
+      if (res.ok) {
+        setSaveSuccess(true);
+        setLastUpdated(new Date().toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        }));
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch {
+      setError('Failed to save changes.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleFileUpload = () => {
+    // Simulate PDF upload processing
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    const interval = setInterval(() => {
+      setUploadProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsUploading(false);
+          setLastUpdated(new Date().toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+          }));
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 300);
+  };
+
+  const getConfidenceBadge = (confidence: 'green' | 'yellow' | 'red') => {
+    const styles = {
+      green: 'bg-green-100 text-green-800 hover:bg-green-100',
+      yellow: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
+      red: 'bg-red-100 text-red-800 hover:bg-red-100 animate-pulse',
+    };
+    const labels = {
+      green: '✓ High',
+      yellow: '? Medium',
+      red: '! Low',
+    };
+    return (
+      <Badge className={`${styles[confidence]} rounded-full`}>
+        {labels[confidence]}
+      </Badge>
+    );
+  };
+
+  // Login Screen
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary/10 via-background to-secondary/5 p-4">
+        <Card className="w-full max-w-md shadow-xl rounded-2xl">
+          <CardHeader className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-secondary/10 mx-auto mb-4">
+              <span className="text-3xl">👩‍💻</span>
+            </div>
+            <CardTitle className="text-2xl">Admin Login</CardTitle>
+            <CardDescription>
+              Enter your admin password to access the control center
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <Input
+                  type="password"
+                  placeholder="Enter admin password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 rounded-xl text-center"
+                  autoFocus
+                />
+                {error && (
+                  <p className="text-destructive text-sm mt-2 text-center">{error}</p>
+                )}
+              </div>
+              <Button type="submit" className="w-full h-12 rounded-2xl text-lg">
+                Access Dashboard
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => router.push('/')}
+              >
+                ← Back to Home
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Admin Dashboard
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-secondary text-secondary-foreground">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">👩‍💻</span>
+            <div>
+              <span className="font-semibold text-lg">Little Sprouts Admin</span>
+              <p className="text-xs text-secondary-foreground/70">Control Center</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Badge variant="outline" className="bg-secondary-foreground/10 text-secondary-foreground border-secondary-foreground/20">
+              Director Sarah
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-secondary-foreground hover:bg-secondary-foreground/10"
+              onClick={() => setIsAuthenticated(false)}
+            >
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-6 max-w-6xl">
+        <Tabs defaultValue="triage" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 max-w-md rounded-2xl h-12">
+            <TabsTrigger value="triage" className="rounded-xl text-base">
+              📋 Triage Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="knowledge" className="rounded-xl text-base">
+              📚 Knowledge Base
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Triage Dashboard Tab */}
+          <TabsContent value="triage" className="space-y-4">
+            {/* Alert Banner */}
+            {mockInquiries.some((i) => i.confidence === 'red') && (
+              <Card className="bg-red-50 border-red-200 rounded-2xl">
+                <CardContent className="py-4 flex items-center gap-4">
+                  <span className="text-2xl">🚨</span>
+                  <div>
+                    <p className="font-semibold text-red-900">Priority Alert</p>
+                    <p className="text-sm text-red-700">
+                      A parent requested to speak with a person. Review immediately.
+                    </p>
+                  </div>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" size="sm" className="ml-auto rounded-xl">
+                        View Details
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="rounded-2xl">
+                      <DialogHeader>
+                        <DialogTitle>🚨 Escalation Details</DialogTitle>
+                        <DialogDescription>
+                          Parent requested human assistance
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="font-medium">Parent:</p>
+                          <p className="text-muted-foreground">James Miller (Leo&apos;s parent)</p>
+                        </div>
+                        <div>
+                          <p className="font-medium">Message:</p>
+                          <p className="text-muted-foreground">&quot;I need to talk to a real person&quot;</p>
+                        </div>
+                        <div>
+                          <p className="font-medium">AI Response:</p>
+                          <p className="text-muted-foreground italic">
+                            &quot;I&apos;ve sent a priority alert to Director Sarah. She&apos;ll see this immediately!&quot;
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button className="rounded-xl">📞 Call Parent</Button>
+                          <Button variant="outline" className="rounded-xl">Mark Resolved</Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-4 gap-4">
+              <Card className="rounded-2xl">
+                <CardContent className="pt-6 text-center">
+                  <p className="text-3xl font-bold text-foreground">{mockInquiries.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Today</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl">
+                <CardContent className="pt-6 text-center">
+                  <p className="text-3xl font-bold text-green-600">
+                    {mockInquiries.filter((i) => i.confidence === 'green').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Auto-Resolved</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl">
+                <CardContent className="pt-6 text-center">
+                  <p className="text-3xl font-bold text-yellow-600">
+                    {mockInquiries.filter((i) => i.confidence === 'yellow').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Needs Review</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl">
+                <CardContent className="pt-6 text-center">
+                  <p className="text-3xl font-bold text-red-600">
+                    {mockInquiries.filter((i) => i.confidence === 'red').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Escalated</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Inquiries Table */}
+            <Card className="rounded-2xl shadow-md">
+              <CardHeader>
+                <CardTitle>Recent Inquiries</CardTitle>
+                <CardDescription>AI-handled parent conversations from today</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Time</TableHead>
+                      <TableHead>Parent</TableHead>
+                      <TableHead>Child</TableHead>
+                      <TableHead>Inquiry</TableHead>
+                      <TableHead>AI Confidence</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockInquiries.map((inquiry) => (
+                      <TableRow 
+                        key={inquiry.id}
+                        className={inquiry.confidence === 'red' ? 'bg-red-50' : ''}
+                      >
+                        <TableCell className="font-mono text-sm">{inquiry.timestamp}</TableCell>
+                        <TableCell>{inquiry.parent}</TableCell>
+                        <TableCell>{inquiry.child}</TableCell>
+                        <TableCell className="max-w-xs truncate">{inquiry.inquiry}</TableCell>
+                        <TableCell>{getConfidenceBadge(inquiry.confidence)}</TableCell>
+                        <TableCell>
+                          <span className={inquiry.confidence === 'red' ? 'font-bold text-red-600' : ''}>
+                            {inquiry.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Knowledge Management Tab */}
+          <TabsContent value="knowledge" className="space-y-4">
+            <div className="grid grid-cols-3 gap-6">
+              {/* Editor */}
+              <div className="col-span-2">
+                <Card className="rounded-2xl shadow-md">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Policy Editor</CardTitle>
+                        <CardDescription>
+                          Edit school policies that the AI uses to answer questions
+                        </CardDescription>
+                      </div>
+                      <div className="text-right text-sm text-muted-foreground">
+                        <p>Last updated:</p>
+                        <p className="font-medium">{lastUpdated}</p>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Textarea
+                      value={knowledge}
+                      onChange={(e) => setKnowledge(e.target.value)}
+                      className="min-h-[400px] font-mono text-sm rounded-xl"
+                      placeholder="Loading knowledge base..."
+                    />
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        Changes are applied instantly to the AI assistant.
+                      </p>
+                      <div className="flex gap-2">
+                        {saveSuccess && (
+                          <Badge className="bg-green-100 text-green-800 rounded-full">
+                            ✓ Saved!
+                          </Badge>
+                        )}
+                        <Button
+                          onClick={handleSaveKnowledge}
+                          disabled={isSaving}
+                          className="rounded-xl"
+                        >
+                          {isSaving ? 'Saving...' : '💾 Save Changes'}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Upload & Info Panel */}
+              <div className="space-y-4">
+                <Card className="rounded-2xl shadow-md">
+                  <CardHeader>
+                    <CardTitle className="text-lg">📄 Upload Document</CardTitle>
+                    <CardDescription>
+                      Upload a PDF or image of your handbook
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {isUploading ? (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Analyzing Handbook...</p>
+                        <Progress value={uploadProgress} className="h-2" />
+                        <p className="text-xs text-muted-foreground">
+                          {uploadProgress}% complete
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        className="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:bg-accent/50 transition-colors"
+                        onClick={handleFileUpload}
+                      >
+                        <span className="text-3xl">📁</span>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Click to upload PDF/Image
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          (Simulated for demo)
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl shadow-md bg-primary/5">
+                  <CardHeader>
+                    <CardTitle className="text-lg">💡 Tips</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm text-muted-foreground">
+                    <p>• Use clear headers with ## for sections</p>
+                    <p>• Add [Action: ...] tags for clickable actions</p>
+                    <p>• Use bold **text** for important info</p>
+                    <p>• Keep policies concise and scannable</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  );
+}
