@@ -1,18 +1,6 @@
-import { createOpenAI } from '@ai-sdk/openai';
-import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-
-// Initialize OpenRouter client (OpenAI-compatible API)
-const openrouter = createOpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY,
-  headers: {
-    'HTTP-Referer': 'https://little-sprouts-demo.vercel.app',
-    'X-Title': 'Little Sprouts Front Desk AI',
-  },
-});
 
 // Load knowledge base
 function loadKnowledge(): string {
@@ -102,20 +90,88 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(userType, childData);
 
-    // Format messages to ensure they're in the correct format
-    const formattedMessages = messages.map((m: { role: string; content: string }) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
+    // Build messages array for OpenRouter (OpenAI-compatible format)
+    const openRouterMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages.map((m: { role: string; content: string }) => ({
+        role: m.role,
+        content: m.content,
+      })),
+    ];
 
-    const result = streamText({
-      // Use mistralai/devstral-2512:free - Mistral's free model on OpenRouter
-      model: openrouter('mistralai/devstral-2512:free'),
-      system: systemPrompt,
-      messages: formattedMessages,
+    // Make direct API call to OpenRouter
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://little-sprouts-demo.vercel.app',
+        'X-Title': 'Little Sprouts Front Desk AI',
+      },
+      body: JSON.stringify({
+        model: 'mistralai/devstral-2512:free',
+        messages: openRouterMessages,
+        stream: true,
+      }),
     });
 
-    return result.toTextStreamResponse();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('OpenRouter API Error:', errorText);
+      throw new Error(`OpenRouter API error: ${response.status}`);
+    }
+
+    // Return the stream directly to the client
+    // Transform SSE format to plain text for simpler client handling
+    const encoder = new TextEncoder();
+    
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (!reader) {
+          controller.close();
+          return;
+        }
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') continue;
+                
+                try {
+                  const parsed = JSON.parse(data);
+                  const content = parsed.choices?.[0]?.delta?.content;
+                  if (content) {
+                    controller.enqueue(encoder.encode(content));
+                  }
+                } catch {
+                  // Skip malformed JSON
+                }
+              }
+            }
+          }
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+      },
+    });
   } catch (error) {
     console.error('Chat API Error:', error);
     return new Response(
