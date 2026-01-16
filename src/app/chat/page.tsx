@@ -43,6 +43,24 @@ export default function ChatPage() {
   // Separate history for AI-only conversations (excludes guided flow messages)
   const [aiHistory, setAiHistory] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
 
+  // Check if message is an escalation request
+  const isEscalationRequest = (message: string): boolean => {
+    const escalationPatterns = [
+      /talk to (a |an |)(real |actual |human |)person/i,
+      /speak (to |with )(a |an |)(real |actual |human |)person/i,
+      /speak (to |with )(a |an |)(real |)human/i,
+      /talk to (a |)(manager|director|someone)/i,
+      /need (a |)(real |)human/i,
+      /want to talk to someone/i,
+      /get me (a |an |)(real |)person/i,
+      /real person/i,
+      /human being/i,
+      /not (a |an |)bot/i,
+      /stop the ai/i,
+    ];
+    return escalationPatterns.some((pattern) => pattern.test(message));
+  };
+
   // Send message to AI API
   const sendToAI = async (userMessage: string) => {
     const userMsg: Message = {
@@ -52,6 +70,24 @@ export default function ChatPage() {
     };
     
     setMessages((prev) => [...prev, userMsg]);
+    
+    // Check for escalation
+    if (isEscalationRequest(userMessage)) {
+      setIsTyping(true);
+      setTimeout(() => {
+        setIsTyping(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: "I completely understand - sometimes you just need to talk to a real person! 💚\n\n🚨 **I've sent a priority alert to Director Sarah.** She'll see this on her dashboard immediately and will reach out to you shortly.\n\nIn the meantime, you can also call us directly at **(512) 555-GROW**.\n\nIs there anything else I can help with while you wait?",
+          },
+        ]);
+      }, 800);
+      return;
+    }
+    
     setIsTyping(true);
 
     // Add to AI history (clean format for API)
@@ -336,16 +372,22 @@ export default function ChatPage() {
   };
 
   // Quick action chips based on user type
+  const handleTalkToPerson = () => {
+    sendToAI('I need to talk to a real person');
+  };
+
   const loggedInChips = [
     { emoji: '🤒', label: 'Sick Policy', onClick: handleSickPolicy },
     { emoji: '🥪', label: 'Forgot Lunch', onClick: handleForgotLunch },
     { emoji: '📅', label: 'Daily Update', onClick: handleDailyUpdate },
+    { emoji: '👤', label: 'Talk to a Person', onClick: handleTalkToPerson },
   ];
 
   const prospectiveChips = [
     { emoji: '💰', label: 'Tuition', onClick: handleTuition },
     { emoji: '🗓️', label: 'Tours', onClick: handleTours },
     { emoji: '📍', label: 'Our Mission', onClick: handleMission },
+    { emoji: '👤', label: 'Talk to a Person', onClick: handleTalkToPerson },
   ];
 
   const quickChips = userType === 'LOGGED_IN' ? loggedInChips : prospectiveChips;
