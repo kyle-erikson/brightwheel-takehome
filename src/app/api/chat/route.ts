@@ -1,12 +1,13 @@
-import { createGroq } from '@ai-sdk/groq';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// Initialize Groq client
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
+// Initialize OpenRouter client (OpenAI-compatible API)
+const openrouter = createOpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
 
 // Load knowledge base
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
     const systemPrompt = buildSystemPrompt(userType, childData);
 
     const result = streamText({
-      model: groq('llama-3.3-70b-versatile'),
+      model: openrouter('xiaomi/mimo-v2-flash:free'),
       system: systemPrompt,
       messages,
     });
