@@ -40,6 +40,9 @@ export default function ChatPage() {
   // Get first name for greeting
   const firstName = parentName?.split(' ')[0] || 'there';
 
+  // Separate history for AI-only conversations (excludes guided flow messages)
+  const [aiHistory, setAiHistory] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
+
   // Send message to AI API
   const sendToAI = async (userMessage: string) => {
     const userMsg: Message = {
@@ -51,18 +54,16 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
 
-    try {
-      // Build messages for API (exclude actions, just content)
-      const apiMessages = [...messages, userMsg].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+    // Add to AI history (clean format for API)
+    const newAiHistory = [...aiHistory, { role: 'user' as const, content: userMessage }];
+    setAiHistory(newAiHistory);
 
+    try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: apiMessages,
+          messages: newAiHistory,
           userType,
           childData,
         }),
@@ -99,6 +100,11 @@ export default function ChatPage() {
             )
           );
         }
+      }
+
+      // Add assistant response to AI history
+      if (assistantContent) {
+        setAiHistory((prev) => [...prev, { role: 'assistant' as const, content: assistantContent }]);
       }
     } catch (error) {
       console.error('AI Error:', error);
