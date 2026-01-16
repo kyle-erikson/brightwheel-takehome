@@ -109,8 +109,8 @@ export async function POST(req: NextRequest) {
     }));
 
     const result = streamText({
-      // Use google/gemma-2-9b-it:free - more compatible with OpenAI SDK format
-      model: openrouter('google/gemma-2-9b-it:free'),
+      // Use mistralai/devstral-2512:free - Mistral's free model on OpenRouter
+      model: openrouter('mistralai/devstral-2512:free'),
       system: systemPrompt,
       messages: formattedMessages,
     });
