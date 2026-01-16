@@ -8,6 +8,10 @@ import path from 'path';
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    'HTTP-Referer': 'https://little-sprouts-demo.vercel.app',
+    'X-Title': 'Little Sprouts Front Desk AI',
+  },
 });
 
 // Load knowledge base
@@ -98,10 +102,17 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(userType, childData);
 
+    // Format messages to ensure they're in the correct format
+    const formattedMessages = messages.map((m: { role: string; content: string }) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
+
     const result = streamText({
-      model: openrouter('xiaomi/mimo-v2-flash:free'),
+      // Use google/gemma-2-9b-it:free - more compatible with OpenAI SDK format
+      model: openrouter('google/gemma-2-9b-it:free'),
       system: systemPrompt,
-      messages,
+      messages: formattedMessages,
     });
 
     return result.toTextStreamResponse();
@@ -113,4 +124,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
