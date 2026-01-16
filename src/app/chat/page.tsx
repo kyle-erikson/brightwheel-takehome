@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useUser } from '@/context/UserContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant';
   content: string;
   actions?: { label: string; onClick: () => void }[];
 }
@@ -23,16 +23,98 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     logout();
     router.push('/');
   };
 
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
   // Get first name for greeting
   const firstName = parentName?.split(' ')[0] || 'there';
 
-  // Add a message with typing simulation
+  // Send message to AI API
+  const sendToAI = async (userMessage: string) => {
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: userMessage,
+    };
+    
+    setMessages((prev) => [...prev, userMsg]);
+    setIsTyping(true);
+
+    try {
+      // Build messages for API (exclude actions, just content)
+      const apiMessages = [...messages, userMsg].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: apiMessages,
+          userType,
+          childData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI response');
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      const assistantId = (Date.now() + 1).toString();
+
+      // Add empty assistant message that we'll update
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: 'assistant', content: '' },
+      ]);
+      setIsTyping(false);
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // Plain text stream - just append the decoded chunk
+          const chunk = decoder.decode(value, { stream: true });
+          assistantContent += chunk;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, content: assistantContent } : m
+            )
+          );
+        }
+      }
+    } catch (error) {
+      console.error('AI Error:', error);
+      setIsTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: "I'm having trouble connecting right now. Please try again in a moment, or use the quick action buttons above! 💚",
+        },
+      ]);
+    }
+  };
+
+  // Add a message with typing simulation (for guided flows)
   const addAssistantMessage = (content: string, actions?: Message['actions']) => {
     setIsTyping(true);
     setTimeout(() => {
@@ -41,10 +123,10 @@ export default function ChatPage() {
         ...prev,
         { id: Date.now().toString(), role: 'assistant', content, actions },
       ]);
-    }, 800);
+    }, 600);
   };
 
-  // Guided flow handlers
+  // Guided flow handlers (keep hardcoded for demo reliability)
   const handleSickPolicy = () => {
     setMessages((prev) => [
       ...prev,
@@ -176,7 +258,7 @@ export default function ChatPage() {
     );
   };
 
-  // Action handlers (these would connect to real APIs in production)
+  // Action handlers
   const handleNotifyTeacher = (teacher: string) => {
     addAssistantMessage(
       `✅ Done! I've sent a message to ${teacher} letting them know. They'll be expecting ${childData?.childName || 'your child'} to be out today.\n\n` +
@@ -237,37 +319,14 @@ export default function ChatPage() {
     );
   };
 
-  // Handle text input submission
+  // Handle text input submission - use AI
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isTyping) return;
     
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), role: 'user', content: input },
-    ]);
-    
-    // Simple response for demo - this will be replaced with AI in Phase 4
-    const lowerInput = input.toLowerCase();
-    if (lowerInput.includes('sick') || lowerInput.includes('fever')) {
-      setInput('');
-      handleSickPolicy();
-    } else if (lowerInput.includes('lunch') || lowerInput.includes('forgot')) {
-      setInput('');
-      handleForgotLunch();
-    } else if (lowerInput.includes('tuition') || lowerInput.includes('cost') || lowerInput.includes('price')) {
-      setInput('');
-      handleTuition();
-    } else if (lowerInput.includes('tour')) {
-      setInput('');
-      handleTours();
-    } else {
-      setInput('');
-      addAssistantMessage(
-        `Thanks for your message! 😊 I'm here to help with any questions about Little Sprouts.\n\n` +
-        `Try asking about our sick policy, lunch program, tuition, or scheduling a tour!`
-      );
-    }
+    const userMessage = input;
+    setInput('');
+    sendToAI(userMessage);
   };
 
   // Quick action chips based on user type
@@ -356,6 +415,7 @@ export default function ChatPage() {
                   variant="outline"
                   size="sm"
                   onClick={chip.onClick}
+                  disabled={isTyping}
                   className="rounded-full px-4 py-2 h-auto hover:bg-primary/10 hover:border-primary transition-all"
                 >
                   {chip.emoji} {chip.label}
@@ -365,7 +425,7 @@ export default function ChatPage() {
 
             {/* Chat Messages */}
             <Card className="flex-1 rounded-2xl shadow-md overflow-hidden flex flex-col">
-              <ScrollArea className="flex-1 p-4 max-h-[400px]">
+              <ScrollArea className="flex-1 p-4 max-h-[400px]" ref={scrollRef}>
                 {messages.length === 0 ? (
                   <div className="text-center text-muted-foreground py-8">
                     <p className="text-lg mb-2">How can I help you today?</p>
@@ -407,7 +467,8 @@ export default function ChatPage() {
                     {isTyping && (
                       <div className="flex justify-start">
                         <div className="bg-muted rounded-2xl px-4 py-3">
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 items-center">
+                            <span className="text-sm text-muted-foreground mr-2">Thinking</span>
                             <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                             <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                             <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
@@ -427,8 +488,9 @@ export default function ChatPage() {
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type a message..."
                     className="rounded-xl"
+                    disabled={isTyping}
                   />
-                  <Button type="submit" className="rounded-xl px-6">
+                  <Button type="submit" className="rounded-xl px-6" disabled={isTyping}>
                     Send
                   </Button>
                 </form>
