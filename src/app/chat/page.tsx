@@ -430,8 +430,8 @@ export default function ChatPage() {
             </div>
 
             {/* Chat Messages */}
-            <Card className="flex-1 rounded-2xl shadow-md overflow-hidden flex flex-col">
-              <ScrollArea className="flex-1 p-4 max-h-[400px]" ref={scrollRef}>
+            <Card className="rounded-2xl shadow-md overflow-hidden flex flex-col min-h-[300px] max-h-[50vh]">
+              <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
                 {messages.length === 0 ? (
                   <div className="text-center text-muted-foreground py-8">
                     <p className="text-lg mb-2">How can I help you today?</p>
@@ -484,7 +484,7 @@ export default function ChatPage() {
                     )}
                   </div>
                 )}
-              </ScrollArea>
+              </div>
 
               {/* Input Area */}
               <div className="border-t p-4">
