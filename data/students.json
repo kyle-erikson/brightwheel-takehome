@@ -1,0 +1,38 @@
+[
+  {
+    "id": "1",
+    "parentName": "James Miller",
+    "parentPhone": "555-0101",
+    "childName": "Leo",
+    "classroom": "Toddler A",
+    "teacher": "Ms. Rachel",
+    "status": "Napping",
+    "lastMeal": "Turkey slider (finished everything!)",
+    "mood": "happy and curious",
+    "attendance": "Present"
+  },
+  {
+    "id": "2",
+    "parentName": "Elena Rodriguez",
+    "parentPhone": "555-0202",
+    "childName": "Maya",
+    "classroom": "Infant Room",
+    "teacher": "Ms. Sarah",
+    "status": "Tummy Time",
+    "lastMeal": "4oz Bottle",
+    "mood": "a bit fussy (teething)",
+    "attendance": "Present"
+  },
+  {
+    "id": "3",
+    "parentName": "Sarah Chen",
+    "parentPhone": "555-0303",
+    "childName": "Cooper",
+    "classroom": "Pre-K",
+    "teacher": "Mr. Mike",
+    "status": "Art Project",
+    "lastMeal": "Did not order school lunch today",
+    "mood": "very focused",
+    "attendance": "Present"
+  }
+]
