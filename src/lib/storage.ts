@@ -1,6 +1,4 @@
-// In-memory storage for serverless environments (Vercel)
-// Note: This persists across requests within the same server instance,
-// but won't survive cold starts. For a demo, this is sufficient.
+import Redis from 'ioredis';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -23,45 +21,64 @@ export interface Inquiry {
   lastUpdated: string;
 }
 
-// Global in-memory store (persists across requests in same instance)
-declare global {
-  // eslint-disable-next-line no-var
-  var inquiriesStore: Inquiry[] | undefined;
-}
+const INQUIRIES_KEY = 'inquiries';
 
-// Initialize or get existing store
-function getStore(): Inquiry[] {
-  if (!global.inquiriesStore) {
-    global.inquiriesStore = [];
+// Create Redis client from environment variable
+const getRedis = () => {
+  const url = process.env.REDIS_URL;
+  if (!url) {
+    throw new Error('REDIS_URL environment variable is not set');
   }
-  return global.inquiriesStore;
-}
+  return new Redis(url);
+};
 
-export function getInquiries(): Inquiry[] {
-  return getStore();
-}
-
-export function getInquiryById(id: string): Inquiry | null {
-  const store = getStore();
-  return store.find(i => i.id === id) || null;
-}
-
-export function saveInquiry(inquiry: Inquiry) {
-  const store = getStore();
-  
-  // Check if inquiry with this ID already exists
-  const existingIndex = store.findIndex(i => i.id === inquiry.id);
-  
-  if (existingIndex >= 0) {
-    // Update existing inquiry
-    store[existingIndex] = inquiry;
-  } else {
-    // Add new inquiry to the beginning
-    store.unshift(inquiry);
+// Lazy singleton
+let redis: Redis | null = null;
+const getClient = () => {
+  if (!redis) {
+    redis = getRedis();
   }
-  
-  // Keep last 50 inquiries
-  if (store.length > 50) {
-    store.length = 50;
+  return redis;
+};
+
+export async function getInquiries(): Promise<Inquiry[]> {
+  try {
+    const client = getClient();
+    const data = await client.get(INQUIRIES_KEY);
+    if (!data) return [];
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error fetching inquiries from Redis:', error);
+    return [];
+  }
+}
+
+export async function getInquiryById(id: string): Promise<Inquiry | null> {
+  const inquiries = await getInquiries();
+  return inquiries.find(i => i.id === id) || null;
+}
+
+export async function saveInquiry(inquiry: Inquiry): Promise<void> {
+  try {
+    const client = getClient();
+    const inquiries = await getInquiries();
+    
+    // Check if inquiry with this ID already exists
+    const existingIndex = inquiries.findIndex(i => i.id === inquiry.id);
+    
+    if (existingIndex >= 0) {
+      // Update existing inquiry
+      inquiries[existingIndex] = inquiry;
+    } else {
+      // Add new inquiry to the beginning
+      inquiries.unshift(inquiry);
+    }
+    
+    // Keep last 50 inquiries
+    const trimmed = inquiries.slice(0, 50);
+    
+    await client.set(INQUIRIES_KEY, JSON.stringify(trimmed));
+  } catch (error) {
+    console.error('Error saving inquiry to Redis:', error);
   }
 }

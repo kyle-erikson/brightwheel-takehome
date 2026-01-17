@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Check if inquiry exists, update or create
-    const existingInquiry = getInquiryById(sessionId);
+    const existingInquiry = await getInquiryById(sessionId);
     
     const inquiry: Inquiry = {
       id: sessionId,
@@ -265,7 +265,7 @@ export async function POST(req: NextRequest) {
       lastUpdated: now
     };
 
-    saveInquiry(inquiry);
+    await saveInquiry(inquiry);
 
     // Return just the answer text to the client
     return new Response(answer, {
