@@ -9,7 +9,7 @@
 | Frontend | Next.js 14 (App Router), React, TypeScript |
 | Styling | Tailwind CSS v4, shadcn/ui components |
 | AI | OpenRouter API (Mistral Devstral) |
-| Storage | File-based JSON (demo purposes) |
+| Storage | Redis (Vercel Marketplace) |
 
 ## 🎯 Approach
 
