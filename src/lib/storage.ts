@@ -1,4 +1,4 @@
-import Redis from 'ioredis';
+import { createClient, RedisClientType } from 'redis';
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -23,27 +23,24 @@ export interface Inquiry {
 
 const INQUIRIES_KEY = 'inquiries';
 
-// Create Redis client from environment variable
-const getRedis = () => {
-  const url = process.env.REDIS_URL;
-  if (!url) {
-    throw new Error('REDIS_URL environment variable is not set');
-  }
-  return new Redis(url);
-};
+// Lazy singleton for Redis client
+let redis: RedisClientType | null = null;
 
-// Lazy singleton
-let redis: Redis | null = null;
-const getClient = () => {
+async function getClient(): Promise<RedisClientType> {
   if (!redis) {
-    redis = getRedis();
+    const url = process.env.REDIS_URL;
+    if (!url) {
+      throw new Error('REDIS_URL environment variable is not set');
+    }
+    redis = createClient({ url });
+    await redis.connect();
   }
   return redis;
-};
+}
 
 export async function getInquiries(): Promise<Inquiry[]> {
   try {
-    const client = getClient();
+    const client = await getClient();
     const data = await client.get(INQUIRIES_KEY);
     if (!data) return [];
     return JSON.parse(data);
@@ -60,7 +57,7 @@ export async function getInquiryById(id: string): Promise<Inquiry | null> {
 
 export async function saveInquiry(inquiry: Inquiry): Promise<void> {
   try {
-    const client = getClient();
+    const client = await getClient();
     const inquiries = await getInquiries();
     
     // Check if inquiry with this ID already exists
