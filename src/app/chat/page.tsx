@@ -24,6 +24,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // Generate unique session ID for this chat session
+  const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
   const handleLogout = () => {
     logout();
@@ -43,25 +46,7 @@ export default function ChatPage() {
   // Separate history for AI-only conversations (excludes guided flow messages)
   const [aiHistory, setAiHistory] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
 
-  // Check if message is an escalation request
-  const isEscalationRequest = (message: string): boolean => {
-    const escalationPatterns = [
-      /talk to (a |an |)(real |actual |human |)person/i,
-      /speak (to |with )(a |an |)(real |actual |human |)person/i,
-      /speak (to |with )(a |an |)(real |)human/i,
-      /talk to (a |)(manager|director|someone)/i,
-      /need (a |)(real |)human/i,
-      /want to talk to someone/i,
-      /get me (a |an |)(real |)person/i,
-      /real person/i,
-      /human being/i,
-      /not (a |an |)bot/i,
-      /stop the ai/i,
-    ];
-    return escalationPatterns.some((pattern) => pattern.test(message));
-  };
-
-  // Send message to AI API
+  // Send message to AI API (no client-side escalation - LLM handles it)
   const sendToAI = async (userMessage: string) => {
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -70,24 +55,6 @@ export default function ChatPage() {
     };
     
     setMessages((prev) => [...prev, userMsg]);
-    
-    // Check for escalation
-    if (isEscalationRequest(userMessage)) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: "I completely understand - sometimes you just need to talk to a real person! 💚\n\n🚨 **I've sent a priority alert to Director Sarah.** She'll see this on her dashboard immediately and will reach out to you shortly.\n\nIn the meantime, you can also call us directly at **(512) 555-GROW**.\n\nIs there anything else I can help with while you wait?",
-          },
-        ]);
-      }, 800);
-      return;
-    }
-    
     setIsTyping(true);
 
     // Add to AI history (clean format for API)
@@ -99,44 +66,27 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          sessionId,
           messages: newAiHistory,
           userType,
           childData,
         }),
       });
 
+
       if (!response.ok) {
         throw new Error('Failed to get AI response');
       }
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantContent = '';
+      // Non-streaming response - just get the text
+      const assistantContent = await response.text();
       const assistantId = (Date.now() + 1).toString();
 
-      // Add empty assistant message that we'll update
+      setIsTyping(false);
       setMessages((prev) => [
         ...prev,
-        { id: assistantId, role: 'assistant', content: '' },
+        { id: assistantId, role: 'assistant', content: assistantContent },
       ]);
-      setIsTyping(false);
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          // Plain text stream - just append the decoded chunk
-          const chunk = decoder.decode(value, { stream: true });
-          assistantContent += chunk;
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: assistantContent } : m
-            )
-          );
-        }
-      }
 
       // Add assistant response to AI history
       if (assistantContent) {
@@ -405,6 +355,14 @@ export default function ChatPage() {
             <Badge variant={userType === 'LOGGED_IN' ? 'default' : 'secondary'} className="rounded-full">
               {userType === 'LOGGED_IN' ? '👤 Parent' : '👀 Guest'}
             </Badge>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => router.push('/admin')}
+              className="text-muted-foreground"
+            >
+              👩‍💼 Admin
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               Sign Out
             </Button>

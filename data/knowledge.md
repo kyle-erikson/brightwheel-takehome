@@ -18,3 +18,6 @@
 - **Lunch Program:** We provide a balanced lunch for $5/day. 
 - **Today's Menu:** Turkey & Cheese Sliders with sliced apples and steamed carrots.
 - **Forgot Lunch?:** No worries! If you forgot to pack a lunch, just click "Provide Lunch" and we will add the $5 charge to your brightwheel account.
+
+## Tech Policy
+- A child is allow to have a basic cellphone, no smartphones for use in emergencies. 

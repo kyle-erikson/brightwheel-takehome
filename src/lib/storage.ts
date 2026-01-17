@@ -1,16 +1,25 @@
-
 import fs from 'fs';
 import path from 'path';
 
+export interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+}
+
 export interface Inquiry {
-  id: string;
+  id: string;              // Session ID
   parent: string;
   child: string;
-  inquiry: string;
+  topic: string;           // AI-generated summary (2-5 words)
+  transcript: Message[];   // Full conversation history
   confidence: 'green' | 'yellow' | 'red';
+  confidenceScore: number;
+  needsHumanReview: boolean;
+  reviewReason?: string;
   status: string;
-  timestamp: string;
-  isEscalated: boolean;
+  timestamp: string;       // Created at
+  lastUpdated: string;     // Last message time
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -29,17 +38,34 @@ export function getInquiries(): Inquiry[] {
   }
 }
 
+export function getInquiryById(id: string): Inquiry | null {
+  const inquiries = getInquiries();
+  return inquiries.find(i => i.id === id) || null;
+}
+
 export function saveInquiry(inquiry: Inquiry) {
   try {
     const inquiries = getInquiries();
-    // Add new inquiry to the beginning
-    const updatedInquiries = [inquiry, ...inquiries].slice(0, 50); // Keep last 50
+    
+    // Check if inquiry with this ID already exists
+    const existingIndex = inquiries.findIndex(i => i.id === inquiry.id);
+    
+    if (existingIndex >= 0) {
+      // Update existing inquiry
+      inquiries[existingIndex] = inquiry;
+    } else {
+      // Add new inquiry to the beginning
+      inquiries.unshift(inquiry);
+    }
+    
+    // Keep last 50 inquiries
+    const trimmed = inquiries.slice(0, 50);
     
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     
-    fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(updatedInquiries, null, 2));
+    fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(trimmed, null, 2));
   } catch (error) {
     console.error('Error saving inquiry:', error);
   }

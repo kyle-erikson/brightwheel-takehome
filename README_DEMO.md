@@ -1,55 +1,82 @@
-📝 Little Sprouts AI: Interviewer Demo Guide
-Welcome to the Little Sprouts "Front Desk" Prototype. To see the full range of the AI's capabilities, please follow these three testing paths:
+# 📝 Little Sprouts AI: Interviewer Demo Guide
 
-🌟 Scenario 1: The "Busy Parent" (Logged In)
-Goal: Showcases "Daily Feed" integration and warm, personal tone.
+Welcome to the Little Sprouts "Front Desk" Prototype. This guide walks through the key scenarios to demonstrate the AI's capabilities.
 
-Login: Use phone number 555-0101 (Enter any 4-digit code).
+---
 
-Interaction: Click the "Check on Leo" button or type "How is my boy doing?"
+## 🌟 Scenario 1: Logged-In Parent
+**Goal:** Personalized, context-aware responses with child data.
 
-What to look for: The AI recognizes James, knows Leo is napping, and mentions his specific teacher (Ms. Rachel).
+1. **Login:** Phone `555-0101` → Any 4-digit code
+2. **Interact:** Type *"How is my son doing?"*
+3. **What to look for:** AI addresses James by name, shows Leo's current activity, teacher, and mood.
 
-🤒 Scenario 2: The "Sick Child" (Guided Flow)
-Goal: Showcases "Handbook Compliance" and "Action-Oriented" UI.
+---
 
-Login: Use phone number 555-0202 (Elena).
+## 🤒 Scenario 2: Sick Child Policy
+**Goal:** Handbook compliance + action-oriented UI.
 
-Interaction: Click the "Sick Policy" action chip or type "Maya has a fever."
+1. **Login:** Phone `555-0202` (Elena)
+2. **Interact:** Click **Sick Policy** chip or type *"Maya has a fever"*
+3. **What to look for:** AI quotes 24-hour fever-free policy, offers "Notify Teacher" button.
 
-What to look for: The AI identifies Maya's teething status, quotes the 24-hour fever-free policy, and offers a "Notify Ms. Sarah" button to bridge the gap between info and action.
+---
 
-🥪 Scenario 3: The "Logistics Gap" (Action Trigger)
-Goal: Showcases revenue-generating features (Brightwheel billing simulation).
+## 🥪 Scenario 3: Forgot Lunch
+**Goal:** Revenue-generating feature (billing simulation).
 
-Login: Use phone number 555-0303 (Sarah Chen).
+1. **Login:** Phone `555-0303` (Sarah Chen)
+2. **Interact:** Type *"I forgot Cooper's lunch!"*
+3. **What to look for:** AI shows today's menu, quotes $5 fee, offers "Charge Account" button.
 
-Interaction: Type "I forgot Cooper's lunch today!"
+---
 
-What to look for: The AI checks the menu for the day, quotes the $5 fee, and offers a "Charge my Account" button.
+## 🏢 Scenario 4: Guest Parent
+**Goal:** Privacy protection + enrollment conversion.
 
-🏢 Scenario 4: The "Prospective Parent" (Guest)
-Goal: Showcases safety/privacy and enrollment conversion.
+1. **Login:** Select **Continue as Guest**
+2. **Interact:** Ask *"What is your infant tuition?"*
+3. **What to look for:** AI provides pricing ($450/week) and suggests booking a tour.
 
-Login: Select "Continue as Guest."
+---
 
-Interaction: Ask "How is Leo doing today?" then ask "What is your infant tuition?"
+## 👩‍💼 Scenario 5: Admin Dashboard
+**Goal:** Human-in-the-loop triage + knowledge management.
 
-What to look for:
+1. **Navigate:** Click **👩‍💼 Admin** button in header (Password: `admin`)
+2. **What to look for:**
+   - **Triage Table** — Conversations with AI confidence scores (Green/Yellow/Red)
+   - **Expandable Rows** — Click any row to see full transcript
+   - **Topic Summaries** — AI-generated 2-5 word descriptions
+   - **Policy Editor** — Edit knowledge base and see AI update instantly
 
-The AI refuses to give info on Leo (Privacy).
+---
 
-The AI gives the Infant Tuition ($450/week) and suggests booking a tour.
+## 🔴 Scenario 6: Live Triage (Side-by-Side)
+**Goal:** Real-time connection between Parent and Admin.
 
-👩‍💻 Scenario 5: The "Operator View" (Admin)
-Goal: Showcases "Human-in-the-Loop" and system improvement.
+1. **Setup:** Open two windows side-by-side:
+   - Window 1: `/chat` (login as any parent)
+   - Window 2: `/admin` (password: `admin`)
 
-Navigate: Go to /admin.
+2. **Interact:**
+   - In Chat: Type *"What activities do you offer?"*
+   - Watch Admin update with new inquiry
+   - In Chat: Type *"I need to speak to someone"*
+   - Watch Admin show 🚨 **Priority Alert**
 
-What to look for:
+3. **What to look for:**
+   - Dashboard updates every 3 seconds
+   - Escalations trigger `needsHumanReview: true`
+   - Click row to see full conversation transcript
 
-Observe the Triage List where previous chats are flagged by confidence.
+---
 
-View the "Red" Escalation if a parent asked a sensitive question.
+## 💡 Key Technical Highlights
 
-Use the "Policy Editor" to change the Veterans Day status and see the AI update its answers instantly.
+| Feature | How It Works |
+|---------|--------------|
+| **Self-Reflective AI** | LLM returns JSON with `confidenceScore` (0-1.0) and `needsHumanReview` flag |
+| **Session Grouping** | All messages in a chat are stored as one inquiry with topic summary |
+| **Live Updates** | Admin polls `/api/admin/inquiries` every 3 seconds |
+| **Session Persistence** | Parent login survives page refresh (localStorage) |

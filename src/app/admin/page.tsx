@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,8 +27,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
-// Empty mock data as we are now fetching from API
-const mockInquiries: any[] = [];
+import { Inquiry } from '@/lib/storage';
+
+// Empty mock data as we are now fetching from API (kept for reference)
+const mockInquiries: Inquiry[] = [];
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -43,7 +45,21 @@ export default function AdminPage() {
   const router = useRouter();
 
 
-  const [inquiries, setInquiries] = useState<any[]>([]);
+
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRow = (id: string) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Load knowledge and inquiries on mount
   useEffect(() => {
@@ -252,7 +268,7 @@ export default function AdminPage() {
                   </div>
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="destructive" size="sm" className="ml-auto rounded-xl">
+                      <Button size="sm" className="ml-auto rounded-xl">
                         View Details
                       </Button>
                     </DialogTrigger>
@@ -268,12 +284,18 @@ export default function AdminPage() {
                            <div key={idx} className="border-b pb-4 mb-4 last:border-0 last:pb-0 last:mb-0">
                             <div>
                               <p className="font-medium">Parent:</p>
-                              <p className="text-muted-foreground">{esc.parent} ({esc.child}'s parent)</p>
+                              <p className="text-muted-foreground">{esc.parent} ({esc.child}&apos;s parent)</p>
                             </div>
                             <div className="mt-2">
-                              <p className="font-medium">Message:</p>
-                              <p className="text-muted-foreground">&quot;{esc.inquiry}&quot;</p>
+                              <p className="font-medium">Topic:</p>
+                              <p className="text-muted-foreground">{esc.topic || 'General Inquiry'}</p>
                             </div>
+                            {esc.reviewReason && (
+                              <div className="mt-2">
+                                <p className="font-medium">Reason:</p>
+                                <p className="text-muted-foreground">{esc.reviewReason}</p>
+                              </div>
+                            )}
                             <div className="mt-2">
                               <p className="font-medium">Time:</p>
                               <p className="text-muted-foreground">{esc.timestamp}</p>
@@ -329,38 +351,94 @@ export default function AdminPage() {
             <Card className="rounded-2xl shadow-md">
               <CardHeader>
                 <CardTitle>Recent Inquiries</CardTitle>
-                <CardDescription>AI-handled parent conversations from today</CardDescription>
+                <CardDescription>AI-handled parent conversations - click row to view transcript</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8"></TableHead>
                       <TableHead>Time</TableHead>
                       <TableHead>Parent</TableHead>
-                      <TableHead>Child</TableHead>
-                      <TableHead>Inquiry</TableHead>
+                      <TableHead>Topic</TableHead>
                       <TableHead>AI Confidence</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {inquiries.map((inquiry) => (
-                      <TableRow 
-                        key={inquiry.id}
-                        className={inquiry.confidence === 'red' ? 'bg-red-50' : ''}
-                      >
-                        <TableCell className="font-mono text-sm">{inquiry.timestamp}</TableCell>
-                        <TableCell>{inquiry.parent}</TableCell>
-                        <TableCell>{inquiry.child}</TableCell>
-                        <TableCell className="max-w-xs truncate">{inquiry.inquiry}</TableCell>
-                        <TableCell>{getConfidenceBadge(inquiry.confidence)}</TableCell>
-                        <TableCell>
-                          <span className={inquiry.confidence === 'red' ? 'font-bold text-red-600' : ''}>
-                            {inquiry.status}
-                          </span>
+                    {inquiries.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <p className="text-lg">No inquiries yet! 💬</p>
+                          <p className="text-sm mt-1">Start a chat at <span className="font-mono">/chat</span> to see messages here.</p>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      inquiries.map((inquiry) => (
+                        <Fragment key={inquiry.id}>
+                          <TableRow 
+                            className={`cursor-pointer hover:bg-muted/50 ${inquiry.confidence === 'red' ? 'bg-red-50' : ''}`}
+                            onClick={() => toggleRow(inquiry.id)}
+                          >
+                            <TableCell className="text-muted-foreground">
+                              {expandedRows.has(inquiry.id) ? '▼' : '▶'}
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{inquiry.lastUpdated || inquiry.timestamp}</TableCell>
+                            <TableCell>{inquiry.parent}</TableCell>
+                            <TableCell className="max-w-xs">
+                              <span className="font-medium">{inquiry.topic || 'General Inquiry'}</span>
+                              {inquiry.needsHumanReview && (
+                                <Badge className="ml-2 bg-red-100 text-red-800 text-xs">Escalated</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {getConfidenceBadge(inquiry.confidence)}
+                              {inquiry.confidenceScore !== undefined && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({Math.round(inquiry.confidenceScore * 100)}%)
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className={inquiry.confidence === 'red' ? 'font-bold text-red-600' : ''}>
+                                {inquiry.status}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                          {expandedRows.has(inquiry.id) && (
+                            <TableRow key={`${inquiry.id}-transcript`}>
+                              <TableCell colSpan={6} className="bg-muted/30 p-4">
+                                <div className="space-y-3">
+                                  <p className="text-sm font-medium text-muted-foreground">
+                                    📝 Conversation Transcript
+                                    {inquiry.reviewReason && (
+                                      <span className="ml-2 text-red-600">| {inquiry.reviewReason}</span>
+                                    )}
+                                  </p>
+                                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                                    {inquiry.transcript?.map((msg, idx) => (
+                                      <div 
+                                        key={idx} 
+                                        className={`p-2 rounded-lg text-sm ${
+                                          msg.role === 'user' 
+                                            ? 'bg-primary/10 ml-8' 
+                                            : 'bg-card mr-8 border'
+                                        }`}
+                                      >
+                                        <span className="font-medium text-xs text-muted-foreground">
+                                          {msg.role === 'user' ? '👤 Parent' : '🤖 AI'} • {msg.timestamp}
+                                        </span>
+                                        <p className="mt-1 whitespace-pre-wrap">{msg.content}</p>
+                                      </div>
+                                    )) || <p className="text-muted-foreground italic">No transcript available</p>}
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
