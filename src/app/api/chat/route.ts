@@ -84,9 +84,50 @@ ${knowledge}
 `;
 }
 
+
+import { saveInquiry } from '@/lib/storage';
+
+// Check if message is an escalation request
+const isEscalationRequest = (message: string): boolean => {
+  const escalationPatterns = [
+    /talk to (a |an |)(real |actual |human |)person/i,
+    /speak (to |with )(a |an |)(real |actual |human |)person/i,
+    /speak (to |with )(a |an |)(real |)human/i,
+    /talk to (a |)(manager|director|someone)/i,
+    /need (a |)(real |)human/i,
+    /want to talk to someone/i,
+    /get me (a |an |)(real |)person/i,
+    /real person/i,
+    /human being/i,
+    /not (a |an |)bot/i,
+    /stop the ai/i,
+  ];
+  return escalationPatterns.some((pattern) => pattern.test(message));
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { messages, userType, childData } = await req.json();
+
+    // extract latest user message
+    const lastMessage = messages[messages.length - 1];
+    const userMessageContent = lastMessage?.role === 'user' ? lastMessage.content : '';
+
+    // Save inquiry to "database"
+    if (userMessageContent) {
+      const isEscalated = isEscalationRequest(userMessageContent);
+      
+      saveInquiry({
+        id: Date.now().toString(),
+        parent: childData?.parentName || (userType === 'ADMIN' ? 'Staff' : 'Guest Parent'),
+        child: childData?.childName || '-',
+        inquiry: userMessageContent,
+        confidence: isEscalated ? 'red' : 'green', // Simple logic for prototype
+        status: isEscalated ? '🚨 ESCALATED' : 'Pending',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isEscalated
+      });
+    }
 
     const systemPrompt = buildSystemPrompt(userType, childData);
 

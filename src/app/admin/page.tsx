@@ -26,54 +26,9 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-// Mock inquiry data for triage dashboard
-const mockInquiries = [
-  {
-    id: '1',
-    parent: 'James Miller',
-    child: 'Leo',
-    inquiry: 'Asked about sick policy for fever',
-    confidence: 'green' as const,
-    status: 'Resolved',
-    timestamp: '10:32 AM',
-  },
-  {
-    id: '2',
-    parent: 'Elena Rodriguez',
-    child: 'Maya',
-    inquiry: 'Forgot Maya\'s lunch today',
-    confidence: 'green' as const,
-    status: 'Resolved',
-    timestamp: '9:45 AM',
-  },
-  {
-    id: '3',
-    parent: 'Sarah Chen',
-    child: 'Cooper',
-    inquiry: 'Asked about early pickup policy',
-    confidence: 'yellow' as const,
-    status: 'Pending Review',
-    timestamp: '9:15 AM',
-  },
-  {
-    id: '4',
-    parent: 'Guest User',
-    child: '-',
-    inquiry: 'Wanted info on enrolled child (blocked)',
-    confidence: 'yellow' as const,
-    status: 'Privacy Protected',
-    timestamp: '8:50 AM',
-  },
-  {
-    id: '5',
-    parent: 'James Miller',
-    child: 'Leo',
-    inquiry: '"I need to talk to a real person"',
-    confidence: 'red' as const,
-    status: '🚨 ESCALATED',
-    timestamp: '8:30 AM',
-  },
-];
+
+// Empty mock data as we are now fetching from API
+const mockInquiries: any[] = [];
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -87,12 +42,32 @@ export default function AdminPage() {
   const [lastUpdated, setLastUpdated] = useState('January 15, 2026');
   const router = useRouter();
 
-  // Load knowledge on mount
+
+  const [inquiries, setInquiries] = useState<any[]>([]);
+
+  // Load knowledge and inquiries on mount
   useEffect(() => {
     fetch('/api/admin/knowledge')
       .then((res) => res.json())
       .then((data) => setKnowledge(data.content || ''))
       .catch(() => setKnowledge('Failed to load knowledge base.'));
+
+    // Initial fetch of inquiries
+    const fetchInquiries = () => {
+      fetch('/api/admin/inquiries')
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setInquiries(data);
+          }
+        })
+        .catch(console.error);
+    };
+
+    fetchInquiries();
+    const interval = setInterval(fetchInquiries, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogin = (e: React.FormEvent) => {
@@ -263,8 +238,9 @@ export default function AdminPage() {
 
           {/* Triage Dashboard Tab */}
           <TabsContent value="triage" className="space-y-4">
+
             {/* Alert Banner */}
-            {mockInquiries.some((i) => i.confidence === 'red') && (
+            {inquiries.some((i) => i.confidence === 'red') && (
               <Card className="bg-red-50 border-red-200 rounded-2xl">
                 <CardContent className="py-4 flex items-center gap-4">
                   <span className="text-2xl">🚨</span>
@@ -288,21 +264,23 @@ export default function AdminPage() {
                         </DialogDescription>
                       </DialogHeader>
                       <div className="space-y-4">
-                        <div>
-                          <p className="font-medium">Parent:</p>
-                          <p className="text-muted-foreground">James Miller (Leo&apos;s parent)</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Message:</p>
-                          <p className="text-muted-foreground">&quot;I need to talk to a real person&quot;</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">AI Response:</p>
-                          <p className="text-muted-foreground italic">
-                            &quot;I&apos;ve sent a priority alert to Director Sarah. She&apos;ll see this immediately!&quot;
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
+                        {inquiries.filter(i => i.confidence === 'red').map((esc, idx) => (
+                           <div key={idx} className="border-b pb-4 mb-4 last:border-0 last:pb-0 last:mb-0">
+                            <div>
+                              <p className="font-medium">Parent:</p>
+                              <p className="text-muted-foreground">{esc.parent} ({esc.child}'s parent)</p>
+                            </div>
+                            <div className="mt-2">
+                              <p className="font-medium">Message:</p>
+                              <p className="text-muted-foreground">&quot;{esc.inquiry}&quot;</p>
+                            </div>
+                            <div className="mt-2">
+                              <p className="font-medium">Time:</p>
+                              <p className="text-muted-foreground">{esc.timestamp}</p>
+                            </div>
+                           </div>
+                        ))}
+                        <div className="flex gap-2 mt-4">
                           <Button className="rounded-xl">📞 Call Parent</Button>
                           <Button variant="outline" className="rounded-xl">Mark Resolved</Button>
                         </div>
@@ -317,14 +295,14 @@ export default function AdminPage() {
             <div className="grid grid-cols-4 gap-4">
               <Card className="rounded-2xl">
                 <CardContent className="pt-6 text-center">
-                  <p className="text-3xl font-bold text-foreground">{mockInquiries.length}</p>
+                  <p className="text-3xl font-bold text-foreground">{inquiries.length}</p>
                   <p className="text-sm text-muted-foreground">Total Today</p>
                 </CardContent>
               </Card>
               <Card className="rounded-2xl">
                 <CardContent className="pt-6 text-center">
                   <p className="text-3xl font-bold text-green-600">
-                    {mockInquiries.filter((i) => i.confidence === 'green').length}
+                    {inquiries.filter((i) => i.confidence === 'green').length}
                   </p>
                   <p className="text-sm text-muted-foreground">Auto-Resolved</p>
                 </CardContent>
@@ -332,7 +310,7 @@ export default function AdminPage() {
               <Card className="rounded-2xl">
                 <CardContent className="pt-6 text-center">
                   <p className="text-3xl font-bold text-yellow-600">
-                    {mockInquiries.filter((i) => i.confidence === 'yellow').length}
+                    {inquiries.filter((i) => i.confidence === 'yellow').length}
                   </p>
                   <p className="text-sm text-muted-foreground">Needs Review</p>
                 </CardContent>
@@ -340,7 +318,7 @@ export default function AdminPage() {
               <Card className="rounded-2xl">
                 <CardContent className="pt-6 text-center">
                   <p className="text-3xl font-bold text-red-600">
-                    {mockInquiries.filter((i) => i.confidence === 'red').length}
+                    {inquiries.filter((i) => i.confidence === 'red').length}
                   </p>
                   <p className="text-sm text-muted-foreground">Escalated</p>
                 </CardContent>
@@ -366,7 +344,7 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockInquiries.map((inquiry) => (
+                    {inquiries.map((inquiry) => (
                       <TableRow 
                         key={inquiry.id}
                         className={inquiry.confidence === 'red' ? 'bg-red-50' : ''}

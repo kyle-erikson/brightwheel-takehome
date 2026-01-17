@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1768687209417",
+    "parent": "James Miller",
+    "child": "Leo",
+    "inquiry": "What has Leo been up to today?",
+    "confidence": "green",
+    "status": "Pending",
+    "timestamp": "04:00 PM",
+    "isEscalated": false
+  },
+  {
+    "id": "test-2",
+    "parent": "Angry Parent",
+    "child": "Test Child",
+    "inquiry": "I need to talk to a human",
+    "confidence": "red",
+    "status": "🚨 ESCALATED",
+    "timestamp": "10:05 AM",
+    "isEscalated": true
+  },
+  {
+    "id": "test-1",
+    "parent": "Test Parent",
+    "child": "Test Child",
+    "inquiry": "What is lunch?",
+    "confidence": "green",
+    "status": "Pending",
+    "timestamp": "10:00 AM",
+    "isEscalated": false
+  }
+]
