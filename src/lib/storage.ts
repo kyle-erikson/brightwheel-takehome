@@ -1,5 +1,6 @@
-import fs from 'fs';
-import path from 'path';
+// In-memory storage for serverless environments (Vercel)
+// Note: This persists across requests within the same server instance,
+// but won't survive cold starts. For a demo, this is sufficient.
 
 export interface Message {
   role: 'user' | 'assistant';
@@ -8,65 +9,59 @@ export interface Message {
 }
 
 export interface Inquiry {
-  id: string;              // Session ID
+  id: string;
   parent: string;
   child: string;
-  topic: string;           // AI-generated summary (2-5 words)
-  transcript: Message[];   // Full conversation history
+  topic: string;
+  transcript: Message[];
   confidence: 'green' | 'yellow' | 'red';
   confidenceScore: number;
   needsHumanReview: boolean;
   reviewReason?: string;
   status: string;
-  timestamp: string;       // Created at
-  lastUpdated: string;     // Last message time
+  timestamp: string;
+  lastUpdated: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const INQUIRIES_FILE = path.join(DATA_DIR, 'inquiries.json');
+// Global in-memory store (persists across requests in same instance)
+declare global {
+  // eslint-disable-next-line no-var
+  var inquiriesStore: Inquiry[] | undefined;
+}
+
+// Initialize or get existing store
+function getStore(): Inquiry[] {
+  if (!global.inquiriesStore) {
+    global.inquiriesStore = [];
+  }
+  return global.inquiriesStore;
+}
 
 export function getInquiries(): Inquiry[] {
-  try {
-    if (!fs.existsSync(INQUIRIES_FILE)) {
-      return [];
-    }
-    const fileContent = fs.readFileSync(INQUIRIES_FILE, 'utf-8');
-    return JSON.parse(fileContent);
-  } catch (error) {
-    console.error('Error reading inquiries:', error);
-    return [];
-  }
+  return getStore();
 }
 
 export function getInquiryById(id: string): Inquiry | null {
-  const inquiries = getInquiries();
-  return inquiries.find(i => i.id === id) || null;
+  const store = getStore();
+  return store.find(i => i.id === id) || null;
 }
 
 export function saveInquiry(inquiry: Inquiry) {
-  try {
-    const inquiries = getInquiries();
-    
-    // Check if inquiry with this ID already exists
-    const existingIndex = inquiries.findIndex(i => i.id === inquiry.id);
-    
-    if (existingIndex >= 0) {
-      // Update existing inquiry
-      inquiries[existingIndex] = inquiry;
-    } else {
-      // Add new inquiry to the beginning
-      inquiries.unshift(inquiry);
-    }
-    
-    // Keep last 50 inquiries
-    const trimmed = inquiries.slice(0, 50);
-    
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    
-    fs.writeFileSync(INQUIRIES_FILE, JSON.stringify(trimmed, null, 2));
-  } catch (error) {
-    console.error('Error saving inquiry:', error);
+  const store = getStore();
+  
+  // Check if inquiry with this ID already exists
+  const existingIndex = store.findIndex(i => i.id === inquiry.id);
+  
+  if (existingIndex >= 0) {
+    // Update existing inquiry
+    store[existingIndex] = inquiry;
+  } else {
+    // Add new inquiry to the beginning
+    store.unshift(inquiry);
+  }
+  
+  // Keep last 50 inquiries
+  if (store.length > 50) {
+    store.length = 50;
   }
 }
