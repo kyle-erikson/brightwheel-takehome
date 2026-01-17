@@ -81,7 +81,7 @@ export default function AdminPage() {
     };
 
     fetchInquiries();
-    const interval = setInterval(fetchInquiries, 3000); // Poll every 3 seconds
+    const interval = setInterval(fetchInquiries, 1000); // Poll every 1 second for responsiveness
 
     return () => clearInterval(interval);
   }, []);
